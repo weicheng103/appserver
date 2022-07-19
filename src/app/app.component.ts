@@ -25,6 +25,7 @@ export class AppComponent implements OnInit {
   filterStatus$ = this.filterSubject.asObservable();
   private isLoading = new BehaviorSubject<Boolean>(false);
   isLoading$ = this.isLoading.asObservable();
+  public editServer: Server;
 
   constructor(private serverService: ServerService, private notifier: NotificationService) { }
 
@@ -103,6 +104,30 @@ export class AppComponent implements OnInit {
       );
   }
 
+    //update
+    updateServer(serverForm: NgForm): void {
+      this.isLoading.next(true);
+      this.appState$ = this.serverService.update$(serverForm.value as Server)
+        .pipe(
+          map(response => {
+            this.dataSubject.next(
+              {...response, data: { servers: [response.data.server, ...this.dataSubject.value.data.servers] } }
+            );
+            this.notifier.onDefault(response.message);
+            document.getElementById('closeModal').click();
+            this.isLoading.next(false);
+            serverForm.resetForm( { status: this.Status.SERVER_DOWN } );
+            return { dataState: DataState.LOADED_STATE, appData: response }
+          }),
+          startWith({ dataState: DataState.LOADED_STATE, appData: this.dataSubject.value }),
+          catchError((error: string) => {
+            this.isLoading.next(false);
+            this.notifier.onError(error);
+            return of({ dataState: DataState.ERROR_STATE, error })
+          })
+        );
+    }
+
 
   deleteServer(server: Server): void {
     this.appState$ = this.serverService.delete$(server.id)
@@ -136,5 +161,22 @@ export class AppComponent implements OnInit {
     // document.body.removeChild(downloadLink);
   }
 
+
+  public onOpenModal(server: Server, mode: string): void {
+    const container = document.getElementById('servers');
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.style.display = 'none';
+    button.setAttribute('data-toggle', 'modal');
+    if (mode === 'add') {
+      button.setAttribute('data-target', '#addEmployeeModal');
+    }
+    if (mode === 'edit') {
+      this.editServer = server;
+      button.setAttribute('data-target', '#updateEmployeeModal');
+    }
+    container!.appendChild(button);
+    button.click();
+  }
 
 }
